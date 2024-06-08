@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game of Thrones Character Interactions</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body, html { width: 100%; height: 100%; margin: 0; }
+        svg { width: 100%; height: 100%; }
+        .links line { stroke: #999; stroke-opacity: 0.6; }
+        .nodes circle { stroke: #fff; stroke-width: 1.5px; }
+        text { font-size: 12px; }
+        .legend { font-size: 12px; }
+    </style>
+</head>
+<body>
+<script>
+    d3.json('data.json').then(function(graph) {
+        const width = document.body.clientWidth, height = document.body.clientHeight;
+        const svg = d3.select("body").append("svg")
+            .attr("viewBox", [0, 0, width, height])
+            .call(d3.zoom().on("zoom", (event) => {
+                container.attr("transform", event.transform);
+            }))
+            .append("g");
+
+        const container = svg.append("g");
+
+        const color = d3.scaleOrdinal(d3.schemeTableau10);
+
+        // Append a g element for the legend
+        const legend = svg.append("g")
+          .attr("class", "legend")
+          .attr("transform", "translate(20, 20)");
+
+        // Add legend entries
+        color.domain().forEach((d, i) => {
+          const legendRow = legend.append("g")
+            .attr("transform", `translate(0, ${i * 20})`);
+          legendRow.append("rect")
+            .attr("width", 10)
+            .attr("height", 10)
+            .attr("fill", color(i));
+          legendRow.append("text")
+            .attr("x", -10)
+            .attr("y", 10)
+            .attr("text-anchor", "end")
+            .style("text-transform", "capitalize")
+            .text(d); // Assuming 'd' is the group name, modify accordingly
+        });
+
+        const simulation = d3.forceSimulation(graph.nodes)
+            .force("link", d3.forceLink(graph.links).id(d => d.id).distance(100))
+            .force("charge", d3.forceManyBody().strength(-300))
+            .force("center", d3.forceCenter(width / 2, height / 2));
+
+        const link = container.append("g")
+            .attr("class", "links")
+            .selectAll("line")
+            .data(graph.links)
+            .join("line")
+            .style("stroke-width", d => Math.sqrt(d.value));
+
+        const node = container.append("g")
+            .attr("class", "nodes")
+            .selectAll("circle")
+            .data(graph.nodes)
+            .join("circle")
+            .attr("r", 5)
+            .style("fill", (d, i) => color(i))
+            .call(drag(simulation));
+
+        node.append("title")
+            .text(d => d.id);
+
+        const labels = container.append("g")
+            .attr("class", "labels")
+            .selectAll("text")
+            .data(graph.nodes)
+            .join("text")
+            .attr("x", d => d.x + 10)
+            .attr("y", d => d.y + 3)
+            .text(d => d.id);
+
+        simulation.on("tick", () => {
+            link.attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+            node.attr("cx", d => d.x)
+                .attr("cy", d => d.y);
+            labels.attr("x", d => d.x + 10)
+                .attr("y", d => d.y + 3);
+        });
+
+        function drag(simulation) {
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+            return d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+        }
+    });
+</script>
+</body>
+</html>
